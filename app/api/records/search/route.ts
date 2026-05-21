@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       clienteNombre: (record.cliente as any).nombre,
       estado: record.estado,
       driveFolderUrl: record.driveFolderUrl,
-      items: record.items.map((i) => ({
+      items: record.items.map((i: any) => ({
         tipoDocumento: i.tipoDocumento,
         entregado: i.entregado,
         descripcion: i.descripcion,

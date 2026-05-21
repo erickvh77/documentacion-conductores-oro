@@ -69,7 +69,7 @@ export async function PATCH(
   await prisma.$transaction(async (tx: any) => {
     for (const item of items) {
       const existing = existingRecord.items.find(
-        (i) => i.tipoDocumento === item.tipoDocumento
+        (i: any) => i.tipoDocumento === item.tipoDocumento
       );
 
       if (existing) {

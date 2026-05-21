@@ -25,6 +25,9 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Generar Prisma Client (necesario para tsc)
+        run: npx prisma generate
+
       - name: Verificar TypeScript
         run: npx tsc --noEmit
 
