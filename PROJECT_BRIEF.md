@@ -176,7 +176,6 @@ Estructura requerida:
 ```text
 /Documentacion/
   /2026-05 Mayo/
-    /2026-05-09/
       /MANIFIESTO_456/
         /fotos_originales/
         /fotos_procesadas/
