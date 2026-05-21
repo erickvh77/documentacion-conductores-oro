@@ -54,7 +54,7 @@ jobs:
             npx prisma migrate deploy
 
             echo "==> Construyendo la aplicación"
-            npm run build
+            NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
             echo "==> Reiniciando el servidor (PM2)"
             pm2 reload ecosystem.config.js --update-env
