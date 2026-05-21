@@ -1,0 +1,50 @@
+# Docker Compose — desarrollo local
+# Levanta: app Next.js + PostgreSQL
+# Uso: docker compose up -d
+
+version: "3.9"
+
+services:
+  # ─── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: conductores_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: conductores_db
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── App Next.js ─────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: conductores_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/conductores_db"
+      UPLOAD_TEMP_DIR: "/tmp/conductores-uploads"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - uploads_tmp:/tmp/conductores-uploads
+
+volumes:
+  postgres_data:
+  uploads_tmp:
