@@ -47,8 +47,8 @@ jobs:
             echo "==> Descargando últimos cambios"
             git pull origin main
 
-            echo "==> Instalando dependencias de producción"
-            npm ci --omit=dev
+            echo "==> Instalando todas las dependencias (incluyendo devDeps para el build)"
+            npm ci
 
             echo "==> Generando Prisma Client"
             npx prisma generate
