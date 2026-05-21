@@ -1,7 +1,8 @@
 import { defineConfig } from "prisma/config";
+import * as dotenv from "dotenv";
 
-// DATABASE_URL es inyectada automáticamente por Prisma CLI desde el archivo .env
-// antes de que este archivo se ejecute — no se necesita dotenv aquí.
+dotenv.config();
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
