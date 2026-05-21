@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const p = require\\('@prisma/client'\\); console.log\\(Object.keys\\(p\\).slice\\(0,8\\)\\)\")",
+      "Bash(npm run *)",
+      "Bash(docker compose *)",
+      "Bash(cd /mnt/c/Users/vacio/Documents/documentacion-conductores-app && docker compose up postgres -d 2>&1)",
+      "PowerShell(cd \"C:\\\\Users\\\\vacio\\\\Documents\\\\documentacion-conductores-app\"; [System.IO.Directory]::Exists\\(\"app\\\\generated\\\\prisma\"\\); [System.IO.Directory]::GetFiles\\(\"app\\\\generated\\\\prisma\"\\) | ForEach-Object { Split-Path $_ -Leaf })",
+      "PowerShell(docker exec conductores_postgres cat /var/lib/postgresql/data/pg_hba.conf)",
+      "Bash(mkdir -p \"C:\\\\Users\\\\vacio\\\\Documents\\\\documentacion-conductores-app\\\\app\\\\api\\\\viajes\\\\[manifiesto]\")",
+      "Bash(docker exec conductores_postgres psql -U postgres -d conductores_db -c ' *)",
+      "Bash(npx next *)",
+      "Bash(npm create *)"
+    ]
+  }
+}
