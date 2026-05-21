@@ -1,0 +1,174 @@
+// Prisma Schema — Aplicación de digitalización documental para conductores
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum EstadoRegistro {
+  BORRADOR
+  VALIDADO
+  PROCESANDO
+  SUBIDO_A_DRIVE
+  REGISTRADO_EN_SHEETS
+  COMPLETADO
+  ERROR
+}
+
+enum TipoDocumento {
+  LIQUIDACION
+  CUMPLIDO
+  REMESA
+  SALIDA_PUERTO
+  CONTENEDOR_VACIO
+  OTROS
+}
+
+// ─────────────────────────────────────────────
+// CLIENTES — tabla administrable
+// ─────────────────────────────────────────────
+
+model Client {
+  id        String   @id @default(uuid())
+  nit       String   @unique @db.VarChar(20)
+  nombre    String   @db.VarChar(150)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  records DocumentRecord[]
+
+  @@map("clients")
+}
+
+// ─────────────────────────────────────────────
+// REGISTROS — cabecera por cada visita
+// ─────────────────────────────────────────────
+
+model DocumentRecord {
+  id               String         @id @default(uuid())
+  nombreConductor  String         @db.VarChar(150) @map("nombre_conductor")
+  placa            String         @db.VarChar(20)
+  manifiesto       String?        @db.VarChar(50)       // nullable cuando es solo contenedor
+  agencia          String?        @db.VarChar(100)
+  clienteId        String         @map("cliente_id")
+  cliente          Client         @relation(fields: [clienteId], references: [id])
+
+  // Campos especiales contenedor vacío
+  numeroContenedor String?        @db.VarChar(50)  @map("numero_contenedor")
+  manifiestoContenedor String?    @db.VarChar(50)  @map("manifiesto_contenedor")
+
+  // URLs Drive
+  pdfUrl           String?        @map("pdf_url")
+  pdfDriveId       String?        @db.VarChar(100) @map("pdf_drive_id")
+  driveFolderId    String?        @db.VarChar(100) @map("drive_folder_id")
+  driveFolderUrl   String?        @map("drive_folder_url")
+
+  // Fila en Google Sheets (para poder actualizarla en lugar de duplicar)
+  sheetsRowIndex   Int?           @map("sheets_row_index")
+
+  // Estado del proceso
+  estado           EstadoRegistro @default(BORRADOR)
+  errorDetalle     String?        @map("error_detalle")
+  // agencia nullable en el nuevo flujo: se deriva de los documentos cargados
+
+
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  items            DocumentItem[]
+  auditLogs        AuditLog[]
+
+  @@index([placa])
+  @@index([manifiesto])
+  @@index([estado])
+  @@index([createdAt])
+  @@map("document_records")
+}
+
+// ─────────────────────────────────────────────
+// ITEMS — un registro por tipo de documento
+// ─────────────────────────────────────────────
+
+model DocumentItem {
+  id                  String         @id @default(uuid())
+  recordId            String         @map("record_id")
+  record              DocumentRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  tipoDocumento       TipoDocumento  @map("tipo_documento")
+  entregado           Boolean        @default(false)
+  descripcion         String?        // solo para OTROS
+
+  // Imagen original (tal como la tomó el celular)
+  originalImageUrl    String?        @map("original_image_url")
+  originalDriveId     String?        @db.VarChar(100) @map("original_drive_id")
+
+  // Imagen procesada (efecto escáner)
+  processedImageUrl   String?        @map("processed_image_url")
+  processedDriveId    String?        @db.VarChar(100) @map("processed_drive_id")
+
+  // Ruta temporal en servidor (pre-procesada, antes de subir a Drive)
+  tempOriginalPath    String?        @map("temp_original_path")
+  tempProcessedPath   String?        @map("temp_processed_path")
+
+  // Agencia que cargó el documento y timestamp de carga (primera foto)
+  agencyName          String?        @db.VarChar(100) @map("agency_name")
+  uploadedAt          DateTime?      @map("uploaded_at")
+
+  // Fotos adicionales — array de {originalDriveId, processedDriveId, originalImageUrl, processedImageUrl, uploadedAt}
+  // La primera foto también se guarda aquí; los campos individuales se mantienen por compat.
+  photos              Json?
+
+  sortOrder           Int            @default(0) @map("sort_order")
+  createdAt           DateTime       @default(now()) @map("created_at")
+
+  @@unique([recordId, tipoDocumento])
+  @@index([recordId])
+  @@map("document_items")
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOGS — trazabilidad de acciones
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id         String          @id @default(uuid())
+  agencia    String?         @db.VarChar(100)
+  action     String          @db.VarChar(80)      // CREATE_RECORD, UPLOAD_IMAGE, GENERATE_PDF, etc.
+  entityType String          @db.VarChar(50)      @map("entity_type")
+  entityId   String?         @map("entity_id")
+  recordId   String?         @map("record_id")
+  record     DocumentRecord? @relation(fields: [recordId], references: [id], onDelete: SetNull)
+  metadata   Json?                                // datos adicionales en formato libre
+  ipAddress  String?         @db.VarChar(45)      @map("ip_address")
+  createdAt  DateTime        @default(now())      @map("created_at")
+
+  @@index([action])
+  @@index([entityId])
+  @@index([recordId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// CACHÉ DE CARPETAS DRIVE — evita queries repetidas a la API
+// ─────────────────────────────────────────────
+
+model DriveFolderCache {
+  id         String   @id @default(uuid())
+  folderPath String   @unique @map("folder_path") // ej: "2026-05 Mayo/2026-05-09/MANIFIESTO_456"
+  driveId    String   @db.VarChar(100) @map("drive_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([folderPath])
+  @@map("drive_folder_cache")
+}

@@ -1,0 +1,62 @@
+name: Deploy a producción
+
+on:
+  push:
+    branches:
+      - main   # Cada push a main dispara el deploy
+
+jobs:
+  deploy:
+    name: Build y deploy en Droplet
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── 1. Verificar que el código compila antes de tocar producción ──────────
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Verificar TypeScript
+        run: npx tsc --noEmit
+
+      # ── 2. Conectar al servidor y desplegar ───────────────────────────────────
+      - name: Deploy en servidor via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            set -e
+
+            echo "==> Entrando al directorio del proyecto"
+            cd /var/www/conductores-app
+
+            echo "==> Descargando últimos cambios"
+            git pull origin main
+
+            echo "==> Instalando dependencias de producción"
+            npm ci --omit=dev
+
+            echo "==> Generando Prisma Client"
+            npx prisma generate
+
+            echo "==> Ejecutando migraciones de BD"
+            npx prisma migrate deploy
+
+            echo "==> Construyendo la aplicación"
+            npm run build
+
+            echo "==> Reiniciando el servidor (PM2)"
+            pm2 reload ecosystem.config.js --update-env
+
+            echo "==> Deploy completado exitosamente"
