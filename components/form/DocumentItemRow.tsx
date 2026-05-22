@@ -34,7 +34,6 @@ export function DocumentItemRow({ item }: DocumentItemRowProps) {
     setDescripcion,
     setAgencyName,
     setNumeroContenedor,
-    setManifiestoContenedor,
     uploadPhoto,
     removePhoto,
   } = useForm();
@@ -130,28 +129,19 @@ export function DocumentItemRow({ item }: DocumentItemRowProps) {
         <div className="mt-3 flex flex-col gap-3 border-t border-green-200 pt-3">
 
           {isContenedor && (
-            <>
-              <Input
-                label="Número de contenedor"
-                placeholder="Ej. ABCD1234567"
-                required
-                autoCapitalize="characters"
-                value={item.numeroContenedor}
-                onChange={(e) => setNumeroContenedor(e.target.value.toUpperCase())}
-                error={
-                  item.entregado && !item.numeroContenedor.trim()
-                    ? "El número de contenedor es obligatorio"
-                    : undefined
-                }
-              />
-              <Input
-                label="Manifiesto asociado al contenedor"
-                placeholder="Ej. 456789 (opcional)"
-                value={item.manifiestoContenedor}
-                onChange={(e) => setManifiestoContenedor(e.target.value)}
-                hint="Si aplica, ingrese el número de manifiesto relacionado"
-              />
-            </>
+            <Input
+              label="Número de contenedor"
+              placeholder="Ej. ABCD1234567"
+              required
+              autoCapitalize="characters"
+              value={item.numeroContenedor}
+              onChange={(e) => setNumeroContenedor(e.target.value.toUpperCase())}
+              error={
+                item.entregado && !item.numeroContenedor.trim()
+                  ? "El número de contenedor es obligatorio"
+                  : undefined
+              }
+            />
           )}
 
           {isOtros && (

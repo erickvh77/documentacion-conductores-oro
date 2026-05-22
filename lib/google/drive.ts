@@ -197,7 +197,7 @@ export async function uploadFile(options: {
 //   {ROOT}/
 //     Documentacion/
 //       {YYYY-MM Mes}/                 ej. "2026-05 Mayo"
-//         MANIFIESTO_{num}/            o CONTENEDOR_{num}/
+//         MANIFIESTO_{num}/
 //           fotos_originales/
 //           fotos_procesadas/
 //           {fecha}_{PLACA}_{MANIFIESTO}_{CLIENTE}.pdf
@@ -205,7 +205,6 @@ export async function uploadFile(options: {
 export async function ensureRecordFolderStructure(options: {
   fecha: Date;
   manifiesto?: string;
-  numeroContenedor?: string;
 }): Promise<{
   manifestoFolderId: string;
   originalesFolderId: string;
@@ -235,10 +234,8 @@ export async function ensureRecordFolderStructure(options: {
     `root/Documentacion/${mesKey}`
   );
 
-  // Nivel 3: /MANIFIESTO_{num}/ o /CONTENEDOR_{num}/ — directamente bajo el mes
-  const folderName = options.numeroContenedor
-    ? `CONTENEDOR_${options.numeroContenedor}`
-    : `MANIFIESTO_${options.manifiesto}`;
+  // Nivel 3: /MANIFIESTO_{num}/ — directamente bajo el mes
+  const folderName = `MANIFIESTO_${options.manifiesto}`;
 
   const manifestoFolderId = await findOrCreateFolder(
     folderName,

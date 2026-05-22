@@ -274,7 +274,6 @@ export async function processRecord(recordId: string): Promise<string | null> {
     const folderStructure = await ensureRecordFolderStructure({
       fecha: record.createdAt,
       manifiesto: record.manifiesto ?? undefined,
-      numeroContenedor: record.numeroContenedor ?? undefined,
     });
 
     logger.info("Carpetas Drive listas", { recordId, manifestoFolderId: folderStructure.manifestoFolderId });
@@ -490,7 +489,6 @@ export async function processAddDocuments(recordId: string): Promise<string | nu
     const folderStructure = await ensureRecordFolderStructure({
       fecha: record.createdAt,
       manifiesto: record.manifiesto ?? undefined,
-      numeroContenedor: record.numeroContenedor ?? undefined,
     });
 
     // ── 2. Subir nuevas imágenes a Drive (multi-foto) ──────────────────────

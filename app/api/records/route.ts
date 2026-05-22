@@ -56,7 +56,6 @@ export async function POST(request: NextRequest) {
           agencia: agenciaRegistro,
           clienteId: data.clienteId,
           numeroContenedor: data.numeroContenedor?.trim() || null,
-          manifiestoContenedor: data.manifiestoContenedor?.trim() || null,
           estado: "PROCESANDO",
         },
       });

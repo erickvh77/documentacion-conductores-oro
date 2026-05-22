@@ -47,7 +47,6 @@ export interface DocumentItemState {
   agencyName: string;
   // CONTENEDOR_VACIO
   numeroContenedor: string;
-  manifiestoContenedor: string;
   // Modo completar: item ya subido en registro anterior
   locked: boolean;
   existingImageUrl: string | null;  // URL de la primera foto en Drive (para "Ver foto")
@@ -103,7 +102,6 @@ type FormAction =
   | { type: "SET_DESCRIPCION"; payload: { tipoDocumento: TipoDocumento; descripcion: string } }
   | { type: "SET_AGENCY_NAME"; payload: { tipoDocumento: TipoDocumento; agencyName: string } }
   | { type: "SET_NUMERO_CONTENEDOR"; payload: { value: string } }
-  | { type: "SET_MANIFIESTO_CONTENEDOR"; payload: { value: string } }
   | { type: "UPLOAD_START"; payload: { tipoDocumento: TipoDocumento } }
   | { type: "UPLOAD_SUCCESS"; payload: { tipoDocumento: TipoDocumento; photo: PhotoEntry } }
   | { type: "UPLOAD_ERROR"; payload: { tipoDocumento: TipoDocumento; error: string } }
@@ -127,7 +125,6 @@ function buildInitialItems(): DocumentItemState[] {
     addPhotoError: null,
     agencyName: "",
     numeroContenedor: "",
-    manifiestoContenedor: "",
     locked: false,
     existingImageUrl: null,
   }));
@@ -190,7 +187,6 @@ function formReducer(state: FormState, action: FormAction): FormState {
                   descripcion: "",
                   agencyName: "",
                   numeroContenedor: "",
-                  manifiestoContenedor: "",
                 }),
               }
             : item
@@ -223,16 +219,6 @@ function formReducer(state: FormState, action: FormAction): FormState {
         items: state.items.map((item) =>
           item.tipoDocumento === "CONTENEDOR_VACIO" && !item.locked
             ? { ...item, numeroContenedor: action.payload.value }
-            : item
-        ),
-      };
-
-    case "SET_MANIFIESTO_CONTENEDOR":
-      return {
-        ...state,
-        items: state.items.map((item) =>
-          item.tipoDocumento === "CONTENEDOR_VACIO" && !item.locked
-            ? { ...item, manifiestoContenedor: action.payload.value }
             : item
         ),
       };
@@ -315,7 +301,6 @@ interface FormContextValue {
   setDescripcion: (tipoDocumento: TipoDocumento, descripcion: string) => void;
   setAgencyName: (tipoDocumento: TipoDocumento, agencyName: string) => void;
   setNumeroContenedor: (value: string) => void;
-  setManifiestoContenedor: (value: string) => void;
   uploadPhoto: (tipoDocumento: TipoDocumento, file: File) => Promise<void>;
   removePhoto: (tipoDocumento: TipoDocumento, photoId: string) => void;
   submitRecord: () => Promise<void>;
@@ -359,10 +344,6 @@ export function FormProvider({ children }: { children: React.ReactNode }) {
 
   const setNumeroContenedor = useCallback((value: string) => {
     dispatch({ type: "SET_NUMERO_CONTENEDOR", payload: { value } });
-  }, []);
-
-  const setManifiestoContenedor = useCallback((value: string) => {
-    dispatch({ type: "SET_MANIFIESTO_CONTENEDOR", payload: { value } });
   }, []);
 
   /** Sube una foto nueva al servidor y la añade al array photos del item. */
@@ -441,8 +422,6 @@ export function FormProvider({ children }: { children: React.ReactNode }) {
       uploadedAt: item.photos[0]?.uploadedAt || undefined,
       numeroContenedor:
         item.tipoDocumento === "CONTENEDOR_VACIO" ? item.numeroContenedor || undefined : undefined,
-      manifiestoContenedor:
-        item.tipoDocumento === "CONTENEDOR_VACIO" ? item.manifiestoContenedor || undefined : undefined,
     });
 
     try {
@@ -474,7 +453,6 @@ export function FormProvider({ children }: { children: React.ReactNode }) {
       const payload = {
         ...state.stepOne,
         numeroContenedor: contenedorItem?.numeroContenedor || undefined,
-        manifiestoContenedor: contenedorItem?.manifiestoContenedor || undefined,
         items: state.items.filter((i) => i.entregado !== null).map(mapItem),
       };
 
@@ -511,7 +489,6 @@ export function FormProvider({ children }: { children: React.ReactNode }) {
         setDescripcion,
         setAgencyName,
         setNumeroContenedor,
-        setManifiestoContenedor,
         uploadPhoto,
         removePhoto,
         submitRecord,

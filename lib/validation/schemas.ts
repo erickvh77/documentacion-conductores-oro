@@ -85,7 +85,6 @@ export const documentItemSchema = z
     photos: z.array(photoUploadSchema).optional(),
     // Para CONTENEDOR_VACIO
     numeroContenedor: z.string().max(50).optional(),
-    manifiestoContenedor: z.string().max(50).optional(),
     // Agencia que cargó el documento (obligatoria si entregado=true)
     agencyName: z.enum(AGENCIAS).optional(),
     // Timestamp de la primera foto (para Sheets / backward compat)
@@ -131,9 +130,8 @@ export const createRecordSchema = z
     manifiesto: z.string().max(50).optional().or(z.literal("")),
     clienteId: z.string().uuid(),
     clienteNombre: z.string().min(1).max(150),
-    // Campos especiales contenedor vacío (se extraen del item correspondiente)
+    // Número de contenedor (se extrae del item CONTENEDOR_VACIO cuando aplica)
     numeroContenedor: z.string().max(50).optional(),
-    manifiestoContenedor: z.string().max(50).optional(),
     items: z.array(documentItemSchema).min(1),
   })
   .superRefine((data, ctx) => {
