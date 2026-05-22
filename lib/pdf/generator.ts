@@ -156,9 +156,6 @@ export function buildPdfFileName(meta: PdfMetadata): string {
   const sanitize = (s: string) =>
     s.toUpperCase().replace(/[^A-Z0-9]/g, "_").replace(/_+/g, "_");
 
-  if (meta.numeroContenedor) {
-    return `${meta.fecha}_${sanitize(meta.placa)}_CONTENEDOR_${sanitize(meta.numeroContenedor)}.pdf`;
-  }
   return `${meta.fecha}_${sanitize(meta.placa)}_${sanitize(meta.manifiesto ?? "SIN_MANIFIESTO")}_${sanitize(meta.cliente)}.pdf`;
 }
 
