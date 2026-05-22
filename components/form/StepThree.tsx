@@ -123,12 +123,6 @@ export function StepThree() {
                 label="N° Contenedor"
                 value={contenedorItem.numeroContenedor || "—"}
               />
-              {contenedorItem.manifiestoContenedor && (
-                <SummaryRow
-                  label="Manifiesto contenedor"
-                  value={contenedorItem.manifiestoContenedor}
-                />
-              )}
             </>
           )}
         </SummaryCard>
