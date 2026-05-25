@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Error al procesar el registro. Por favor reintente.",
-        detail: process.env.NODE_ENV === "development" ? errorMsg : undefined,
+        detail: errorMsg,
       },
       { status: 500 }
     );
