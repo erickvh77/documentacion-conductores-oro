@@ -1,7 +1,7 @@
 /**
  * Google Sheets API — registro operativo de cada viaje.
  *
- * Estructura de columnas (34 columnas, A–AH):
+ * Estructura de columnas (30 columnas, A–AD):
  *
  * A  fecha_hora
  * B  placa
@@ -13,30 +13,26 @@
  * H  liquidacion_url_foto
  * I  agencia_liquidacion
  * J  fecha_liquidacion
- * K  cumplido_entregado
- * L  cumplido_url_foto
- * M  agencia_cumplido
- * N  fecha_cumplido
- * O  remesa_entregada
- * P  remesa_url_foto
- * Q  agencia_remesa
- * R  fecha_remesa
- * S  salida_puerto_entregada
- * T  salida_puerto_url_foto
- * U  agencia_salida_puerto
- * V  fecha_salida_puerto
- * W  contenedor_vacio_entregado
- * X  contenedor_vacio_url_foto
- * Y  agencia_contenedor_vacio
- * Z  fecha_contenedor_vacio
- * AA otros_entregado
- * AB otros_descripcion
- * AC otros_url_foto
- * AD agencia_otros_entregados
- * AE fecha_otros_entregados
- * AF pdf_url
- * AG estado_registro
- * AH observaciones
+ * K  remesa_entregada
+ * L  remesa_url_foto
+ * M  agencia_remesa
+ * N  fecha_remesa
+ * O  salida_puerto_entregada
+ * P  salida_puerto_url_foto
+ * Q  agencia_salida_puerto
+ * R  fecha_salida_puerto
+ * S  contenedor_vacio_entregado
+ * T  contenedor_vacio_url_foto
+ * U  agencia_contenedor_vacio
+ * V  fecha_contenedor_vacio
+ * W  otros_entregado
+ * X  otros_descripcion
+ * Y  otros_url_foto
+ * Z  agencia_otros_entregados
+ * AA fecha_otros_entregados
+ * AB pdf_url
+ * AC estado_registro
+ * AD observaciones
  */
 
 import { google } from "googleapis";
@@ -61,39 +57,34 @@ export interface SheetRowData {
   liquidacionUrlFoto: string;   // H
   agenciaLiquidacion: string;   // I
   fechaLiquidacion: string;     // J
-  // Cumplido
-  cumplidoEntregado: string;    // K
-  cumplidoUrlFoto: string;      // L
-  agenciaCumplido: string;      // M
-  fechaCumplido: string;        // N
   // Remesa
-  remesaEntregada: string;      // O
-  remesaUrlFoto: string;        // P
-  agenciaRemesa: string;        // Q
-  fechaRemesa: string;          // R
+  remesaEntregada: string;      // K
+  remesaUrlFoto: string;        // L
+  agenciaRemesa: string;        // M
+  fechaRemesa: string;          // N
   // Salida puerto
-  salidaPuertoEntregada: string; // S
-  salidaPuertoUrlFoto: string;   // T
-  agenciaSalidaPuerto: string;   // U
-  fechaSalidaPuerto: string;     // V
+  salidaPuertoEntregada: string; // O
+  salidaPuertoUrlFoto: string;   // P
+  agenciaSalidaPuerto: string;   // Q
+  fechaSalidaPuerto: string;     // R
   // Contenedor vacío
-  contenedorVacioEntregado: string; // W
-  contenedorVacioUrlFoto: string;   // X
-  agenciaContenedorVacio: string;   // Y
-  fechaContenedorVacio: string;     // Z
+  contenedorVacioEntregado: string; // S
+  contenedorVacioUrlFoto: string;   // T
+  agenciaContenedorVacio: string;   // U
+  fechaContenedorVacio: string;     // V
   // Otros
-  otrosEntregado: string;       // AA
-  otrosDescripcion: string;     // AB
-  otrosUrlFoto: string;         // AC
-  agenciaOtros: string;         // AD
-  fechaOtros: string;           // AE
+  otrosEntregado: string;       // W
+  otrosDescripcion: string;     // X
+  otrosUrlFoto: string;         // Y
+  agenciaOtros: string;         // Z
+  fechaOtros: string;           // AA
   // Cierre
-  pdfUrl: string;               // AF
-  estadoRegistro: string;       // AG
-  observaciones: string;        // AH
+  pdfUrl: string;               // AB
+  estadoRegistro: string;       // AC
+  observaciones: string;        // AD
 }
 
-/** Construye el array de 34 valores en el orden exacto de los encabezados del sheet. */
+/** Construye el array de 30 valores en el orden exacto de los encabezados del sheet. */
 function buildRow(data: SheetRowData): string[] {
   return [
     data.fechaHora,             // A
@@ -106,36 +97,30 @@ function buildRow(data: SheetRowData): string[] {
     data.liquidacionUrlFoto,    // H
     data.agenciaLiquidacion,    // I
     data.fechaLiquidacion,      // J
-    data.cumplidoEntregado,     // K
-    data.cumplidoUrlFoto,       // L
-    data.agenciaCumplido,       // M
-    data.fechaCumplido,         // N
-    data.remesaEntregada,       // O
-    data.remesaUrlFoto,         // P
-    data.agenciaRemesa,         // Q
-    data.fechaRemesa,           // R
-    data.salidaPuertoEntregada, // S
-    data.salidaPuertoUrlFoto,   // T
-    data.agenciaSalidaPuerto,   // U
-    data.fechaSalidaPuerto,     // V
-    data.contenedorVacioEntregado, // W
-    data.contenedorVacioUrlFoto,   // X
-    data.agenciaContenedorVacio,   // Y
-    data.fechaContenedorVacio,     // Z
-    data.otrosEntregado,        // AA
-    data.otrosDescripcion,      // AB
-    data.otrosUrlFoto,          // AC
-    data.agenciaOtros,          // AD
-    data.fechaOtros,            // AE
-    data.pdfUrl,                // AF
-    data.estadoRegistro,        // AG
-    data.observaciones,         // AH
+    data.remesaEntregada,       // K
+    data.remesaUrlFoto,         // L
+    data.agenciaRemesa,         // M
+    data.fechaRemesa,           // N
+    data.salidaPuertoEntregada, // O
+    data.salidaPuertoUrlFoto,   // P
+    data.agenciaSalidaPuerto,   // Q
+    data.fechaSalidaPuerto,     // R
+    data.contenedorVacioEntregado, // S
+    data.contenedorVacioUrlFoto,   // T
+    data.agenciaContenedorVacio,   // U
+    data.fechaContenedorVacio,     // V
+    data.otrosEntregado,        // W
+    data.otrosDescripcion,      // X
+    data.otrosUrlFoto,          // Y
+    data.agenciaOtros,          // Z
+    data.fechaOtros,            // AA
+    data.pdfUrl,                // AB
+    data.estadoRegistro,        // AC
+    data.observaciones,         // AD
   ];
 }
 
 // ─── Buscar fila existente por placa + manifiesto ────────────────────────────
-// B=placa (col 2), C=manifiesto (col 3) — posiciones sin cambio.
-// Normaliza para manejar locale es-CO (puntos de miles).
 export async function findSheetRowByManifiesto(
   placa: string,
   manifiesto: string
@@ -200,7 +185,7 @@ export async function appendSheetRow(data: SheetRowData): Promise<number> {
 
   const response = await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: "Registros!A:AH",
+    range: "Registros!A:AD",
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [buildRow(data)] },
   });
@@ -233,7 +218,7 @@ export async function updateSheetRow(rowIndex: number, data: SheetRowData): Prom
 
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `Registros!A${rowIndex}:AH${rowIndex}`,
+    range: `Registros!A${rowIndex}:AD${rowIndex}`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [buildRow(data)] },
   });
