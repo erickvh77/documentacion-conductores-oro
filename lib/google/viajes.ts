@@ -1,11 +1,15 @@
 /**
  * Google Sheets — lectura del tab VIAJES.
  *
- * El tab VIAJES contiene la información operativa de los viajes activos:
- *   Col A: MANIFIESTO
- *   Col B: NOMBRE CLIENTE
- *   Col C: PLACA VEHICULO
- *   Col D: NOMBRE_CONDUCTOR
+ * El tab VIAJES contiene la información operativa de los viajes activos.
+ * Las columnas se detectan dinámicamente por encabezado (row 0), no por
+ * posición fija, para ser resilientes ante columnas vacías o reordenadas.
+ *
+ * Columnas esperadas (en cualquier orden):
+ *   MANIFIESTO
+ *   NOMBRE CLIENTE  (o NOMBRE_CLIENTE)
+ *   PLACA VEHICULO  (o PLACA)
+ *   NOMBRE_CONDUCTOR (o CONDUCTOR)
  *
  * Se usa un spreadsheet configurable (GOOGLE_SHEETS_VIAJES_SPREADSHEET_ID).
  * Si no está definido, cae sobre GOOGLE_SHEETS_SPREADSHEET_ID (mismo archivo).
@@ -51,6 +55,40 @@ function norm(v: unknown): string {
     .toUpperCase();
 }
 
+// ─── Detección de columnas por encabezado ────────────────────────────────────
+
+interface ColMap {
+  manifiesto: number;
+  clienteNombre: number;
+  placa: number;
+  conductor: number;
+}
+
+/**
+ * Dado el row de encabezados, devuelve los índices de cada columna relevante.
+ * La comparación ignora mayúsculas, espacios y guiones bajos.
+ * Si una columna no se encuentra devuelve -1 (se notificará en el log).
+ */
+function buildColMap(headerRow: string[]): ColMap {
+  const clean = (s: unknown) =>
+    String(s ?? "")
+      .toUpperCase()
+      .replace(/[\s_]+/g, "_")
+      .trim();
+
+  const find = (keywords: string[]) =>
+    headerRow.findIndex((h) => keywords.some((kw) => clean(h).includes(kw)));
+
+  return {
+    manifiesto:    find(["MANIFIESTO"]),
+    // "NOMBRE CLIENTE" normaliza a "NOMBRE_CLIENTE"; orden es importante: busca
+    // "NOMBRE_CLIENTE" antes que "CLIENTE" para no confundirse con "NOMBRE_CONDUCTOR"
+    clienteNombre: find(["NOMBRE_CLIENTE", "CLIENTE"]),
+    placa:         find(["PLACA"]),
+    conductor:     find(["CONDUCTOR"]),
+  };
+}
+
 // ─── Lectura del sheet con caché ──────────────────────────────────────────────
 
 async function getViajesRows(): Promise<string[][]> {
@@ -72,9 +110,10 @@ async function getViajesRows(): Promise<string[][]> {
 
   const sheets = google.sheets({ version: "v4", auth: getGoogleAuth() });
 
+  // Leemos A:G para cubrir cualquier disposición de columnas en el tab
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: "VIAJES!A:D", // MANIFIESTO | NOMBRE CLIENTE | PLACA VEHICULO | NOMBRE_CONDUCTOR
+    range: "VIAJES!A:G",
   });
 
   const rows = (response.data.values ?? []) as string[][];
@@ -106,25 +145,44 @@ export async function searchViajeByManifiesto(
 
   try {
     const rows = await getViajesRows();
+    if (rows.length < 2) return null;
 
-    // rows[0] = cabecera → skip
+    // Detectar columnas por encabezado (row 0)
+    const cols = buildColMap(rows[0]);
+
+    logger.debug("Mapa de columnas VIAJES", { cols, headers: rows[0] });
+
+    // Verificar que encontramos las columnas mínimas
+    if (cols.manifiesto < 0 || cols.clienteNombre < 0 || cols.placa < 0) {
+      logger.warn("No se encontraron columnas esperadas en VIAJES tab", {
+        cols,
+        headers: rows[0],
+      });
+    }
+
+    const colMani = cols.manifiesto >= 0 ? cols.manifiesto : 0;
+
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      if (!row || row.length < 4) continue;
+      if (!row || row.length === 0) continue;
 
-      const rowManifiesto = norm(row[0]);
+      const rowManifiesto = norm(row[colMani]);
       if (rowManifiesto === target) {
+        const get = (idx: number) =>
+          idx >= 0 ? String(row[idx] ?? "").trim() : "";
+
         const result: ViajeInfo = {
-          manifiesto: String(row[0] ?? "").trim(),
-          clienteNombre: String(row[1] ?? "").trim(),
-          placa: String(row[2] ?? "").trim().toUpperCase(),
-          conductor: String(row[3] ?? "").trim(),
+          manifiesto:    get(colMani),
+          clienteNombre: get(cols.clienteNombre),
+          placa:         get(cols.placa).toUpperCase(),
+          conductor:     get(cols.conductor),
         };
 
         logger.info("Viaje encontrado en VIAJES sheet", {
           manifiesto: result.manifiesto,
           placa: result.placa,
           conductor: result.conductor,
+          clienteNombre: result.clienteNombre,
         });
 
         return result;
