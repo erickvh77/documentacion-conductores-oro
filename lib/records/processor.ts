@@ -23,7 +23,7 @@
 
 import fs from "fs/promises";
 import { prisma } from "@/lib/db/prisma";
-import { uploadFile, ensureRecordFolderStructure, downloadFile, deleteFile } from "@/lib/google/drive";
+import { uploadFile, ensureRecordFolderStructure, downloadFile, updateFileContent } from "@/lib/google/drive";
 import { appendSheetRow, updateSheetRow, findSheetRowByManifiesto, type SheetRowData } from "@/lib/google/sheets";
 import { generateRecordPdf, buildPdfFileName } from "@/lib/pdf/generator";
 import { logger } from "@/lib/logger";
@@ -613,26 +613,29 @@ export async function processAddDocuments(recordId: string): Promise<string | nu
 
       const pdfBuffer = await generateRecordPdf(pdfItems, meta);
 
-      // Eliminar PDF anterior antes de subir el nuevo
       if (record.pdfDriveId) {
-        try {
-          await deleteFile(record.pdfDriveId);
-          logger.info("PDF anterior eliminado de Drive", { recordId, oldPdfDriveId: record.pdfDriveId });
-        } catch (e) {
-          logger.warn("No se pudo eliminar el PDF anterior", { recordId, error: String(e) });
-        }
+        // Actualizar el contenido del PDF existente en Drive.
+        // Esto preserva el ID, la URL y los permisos — no se generan duplicados.
+        const updated = await updateFileContent({
+          fileId: record.pdfDriveId,
+          buffer: pdfBuffer,
+          mimeType: "application/pdf",
+        });
+        pdfUrl = updated.url;
+        pdfDriveId = updated.id;
+        logger.info("PDF actualizado en Drive (in-place)", { recordId, pdfDriveId });
+      } else {
+        // Primera vez que se genera un PDF para este registro
+        const pdfUpload = await uploadFile({
+          buffer: pdfBuffer,
+          fileName: buildPdfFileName(meta),
+          mimeType: "application/pdf",
+          parentId: folderStructure.manifestoFolderId,
+        });
+        pdfUrl = pdfUpload.url;
+        pdfDriveId = pdfUpload.id;
+        logger.info("PDF creado en Drive", { recordId, pdfUrl });
       }
-
-      const pdfUpload = await uploadFile({
-        buffer: pdfBuffer,
-        fileName: buildPdfFileName(meta),
-        mimeType: "application/pdf",
-        parentId: folderStructure.manifestoFolderId,
-      });
-      pdfUrl = pdfUpload.url;
-      pdfDriveId = pdfUpload.id;
-
-      logger.info("PDF actualizado en Drive", { recordId, pdfUrl });
     }
 
     // ── 4. Actualizar record con nuevo PDF ──────────────────────────────────

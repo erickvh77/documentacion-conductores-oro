@@ -124,6 +124,35 @@ export async function deleteFile(fileId: string): Promise<void> {
   await drive.files.delete({ fileId, supportsAllDrives: true });
 }
 
+// ─── Actualizar contenido de un archivo existente en Drive ───────────────────
+// Preserva el ID, la URL y los permisos del archivo original.
+// Úsalo en lugar de deleteFile + uploadFile para evitar duplicados y
+// problemas de permisos cuando el propietario fue transferido.
+export async function updateFileContent(options: {
+  fileId: string;
+  buffer: Buffer;
+  mimeType: string;
+}): Promise<{ id: string; url: string }> {
+  const drive = getDrive();
+  const stream = Readable.from(options.buffer);
+
+  await drive.files.update({
+    fileId: options.fileId,
+    media: {
+      mimeType: options.mimeType,
+      body: stream,
+    },
+    supportsAllDrives: true,
+  });
+
+  logger.info("Contenido de archivo actualizado en Drive", { fileId: options.fileId });
+
+  return {
+    id: options.fileId,
+    url: getDriveFileUrl(options.fileId),
+  };
+}
+
 // ─── Descargar archivo de Drive como Buffer ───────────────────────────────────
 export async function downloadFile(fileId: string): Promise<Buffer> {
   const drive = getDrive();
