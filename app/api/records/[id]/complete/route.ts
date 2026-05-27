@@ -33,10 +33,21 @@ export async function PATCH(
   }
 
   if (existingRecord.estado === "PROCESANDO") {
-    return NextResponse.json(
-      { error: "El registro está siendo procesado. Espere un momento e intente de nuevo." },
-      { status: 409 }
-    );
+    // Si lleva más de 5 minutos en PROCESANDO es un registro atascado (crash/timeout).
+    // Permitir el reintento en ese caso; si es reciente, bloquear para evitar colisiones.
+    const STUCK_THRESHOLD_MS = 5 * 60 * 1000;
+    const stuckMs = Date.now() - new Date(existingRecord.updatedAt).getTime();
+    if (stuckMs < STUCK_THRESHOLD_MS) {
+      return NextResponse.json(
+        { error: "El registro está siendo procesado. Espere un momento e intente de nuevo." },
+        { status: 409 }
+      );
+    }
+    logger.warn("Registro atascado en PROCESANDO — permitiendo reintento", {
+      recordId,
+      minutosAtascado: Math.round(stuckMs / 60000),
+    });
+    // Continuar: la transacción más abajo lo marcará de nuevo como PROCESANDO
   }
 
   // ── 2. Validar payload ─────────────────────────────────────────────────────

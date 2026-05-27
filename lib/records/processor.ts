@@ -614,16 +614,45 @@ export async function processAddDocuments(recordId: string): Promise<string | nu
       const pdfBuffer = await generateRecordPdf(pdfItems, meta);
 
       if (record.pdfDriveId) {
-        // Actualizar el contenido del PDF existente en Drive.
-        // Esto preserva el ID, la URL y los permisos — no se generan duplicados.
-        const updated = await updateFileContent({
-          fileId: record.pdfDriveId,
-          buffer: pdfBuffer,
-          mimeType: "application/pdf",
-        });
-        pdfUrl = updated.url;
-        pdfDriveId = updated.id;
-        logger.info("PDF actualizado en Drive (in-place)", { recordId, pdfDriveId });
+        // Actualizar el contenido del PDF existente en Drive (in-place).
+        // Preserva el ID, la URL y los permisos — no se generan duplicados.
+        // Si el archivo ya no existe (fue borrado manualmente), crear uno nuevo.
+        try {
+          const updated = await updateFileContent({
+            fileId: record.pdfDriveId,
+            buffer: pdfBuffer,
+            mimeType: "application/pdf",
+          });
+          pdfUrl = updated.url;
+          pdfDriveId = updated.id;
+          logger.info("PDF actualizado en Drive (in-place)", { recordId, pdfDriveId });
+        } catch (updateErr: unknown) {
+          const errStr = String(updateErr);
+          const isNotFound =
+            errStr.includes("404") ||
+            errStr.includes("notFound") ||
+            errStr.includes("File not found") ||
+            (updateErr as any)?.code === 404;
+
+          if (isNotFound) {
+            // El archivo fue borrado externamente; subir uno nuevo
+            logger.warn("PDF anterior no encontrado en Drive — creando uno nuevo", {
+              recordId,
+              oldPdfDriveId: record.pdfDriveId,
+            });
+            const pdfUpload = await uploadFile({
+              buffer: pdfBuffer,
+              fileName: buildPdfFileName(meta),
+              mimeType: "application/pdf",
+              parentId: folderStructure.manifestoFolderId,
+            });
+            pdfUrl = pdfUpload.url;
+            pdfDriveId = pdfUpload.id;
+            logger.info("PDF nuevo creado en Drive (fallback)", { recordId, pdfUrl });
+          } else {
+            throw updateErr; // Error real — propagar
+          }
+        }
       } else {
         // Primera vez que se genera un PDF para este registro
         const pdfUpload = await uploadFile({
