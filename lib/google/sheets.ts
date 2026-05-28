@@ -120,9 +120,10 @@ function buildRow(data: SheetRowData): string[] {
   ];
 }
 
-// ─── Buscar fila existente por placa + manifiesto ────────────────────────────
+// ─── Buscar fila existente por número de manifiesto (columna C) ──────────────
+// Busca solo por manifiesto para que el resultado sea correcto aunque el usuario
+// haya reordenado, insertado o eliminado filas manualmente en el sheet.
 export async function findSheetRowByManifiesto(
-  placa: string,
   manifiesto: string
 ): Promise<number | null> {
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
@@ -133,45 +134,40 @@ export async function findSheetRowByManifiesto(
       .replace(/[^0-9a-zA-Z]/g, "")
       .toUpperCase();
 
-  const targetPlaca = norm(placa);
   const targetManifiesto = norm(manifiesto);
+  if (!targetManifiesto) return null;
 
   const sheets = getSheets();
   try {
+    // Leer solo columna C (manifiesto) — mínimo de datos para la búsqueda
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Registros!B:C",
+      range: "Registros!C:C",
     });
 
     const rows = response.data.values ?? [];
 
-    logger.debug("Buscando fila en Sheets", {
-      targetPlaca,
+    logger.debug("Buscando fila en Sheets por manifiesto", {
       targetManifiesto,
       totalRows: rows.length,
     });
 
     for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      if (!row || row.length < 2) continue;
-
-      const rowPlaca = norm(row[0]);
-      const rowManifiesto = norm(row[1]);
-
-      if (rowPlaca === targetPlaca && rowManifiesto === targetManifiesto) {
-        const sheetRow = i + 1;
-        logger.info("Fila encontrada en Sheets", { sheetRow, rowPlaca, rowManifiesto });
+      const cell = rows[i]?.[0];
+      if (!cell) continue;
+      if (norm(cell) === targetManifiesto) {
+        const sheetRow = i + 1; // i es 0-based; fila 1 = encabezado
+        logger.info("Fila encontrada en Sheets", { sheetRow, manifiesto });
         return sheetRow;
       }
     }
 
-    logger.info("Fila no encontrada en Sheets — se hará append", {
-      targetPlaca,
+    logger.info("Manifiesto no encontrado en Sheets — se hará append", {
       targetManifiesto,
       rowsSearched: rows.length - 1,
     });
   } catch (e) {
-    logger.warn("Error buscando fila en Sheets", { placa, manifiesto, error: String(e) });
+    logger.warn("Error buscando fila en Sheets", { manifiesto, error: String(e) });
   }
   return null;
 }

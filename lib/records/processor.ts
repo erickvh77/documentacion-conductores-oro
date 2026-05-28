@@ -193,6 +193,10 @@ function buildSheetRow(record: RecordWithRelations, pdfUrl: string): SheetRowDat
 }
 
 // ─── Helper: actualizar o insertar fila en Sheets ────────────────────────────
+// Estrategia: siempre buscar la fila por manifiesto en la columna C antes de
+// escribir. Así es correcto aunque el usuario haya reordenado o eliminado filas
+// manualmente. El índice guardado en BD (sheetsRowIndex) ya no se usa como
+// fuente de verdad — solo se actualiza para referencia/auditoría.
 
 async function syncSheetRow(
   recordId: string,
@@ -201,34 +205,30 @@ async function syncSheetRow(
 ): Promise<void> {
   const sheetRow = buildSheetRow(record, pdfUrl);
 
-  // Intentar usar el índice guardado en BD primero
-  let rowIndex = record.sheetsRowIndex;
+  // Buscar siempre por manifiesto en el sheet actual
+  let rowIndex: number | null = null;
 
-  // Si no tenemos el índice, buscar en la hoja por placa+manifiesto (registros anteriores al feature)
-  if ((!rowIndex || rowIndex < 2) && record.manifiesto) {
-    rowIndex = await findSheetRowByManifiesto(record.placa, record.manifiesto);
-    if (rowIndex) {
-      logger.info("Fila encontrada en Sheets por búsqueda", { recordId, rowIndex });
-    }
+  if (record.manifiesto) {
+    rowIndex = await findSheetRowByManifiesto(record.manifiesto);
   }
 
   if (rowIndex && rowIndex >= 2) {
+    // Fila existente → actualizar en el lugar correcto
     await updateSheetRow(rowIndex, sheetRow);
-    // Guardar índice en BD para evitar búsquedas futuras
-    if (!record.sheetsRowIndex) {
-      await prisma.documentRecord.update({
-        where: { id: recordId },
-        data: { sheetsRowIndex: rowIndex },
-      });
-    }
+    logger.info("Fila de Sheets actualizada", { recordId, rowIndex, manifiesto: record.manifiesto });
   } else {
+    // No existe → agregar al final
     const newRowIndex = await appendSheetRow(sheetRow);
-    if (newRowIndex > 0) {
-      await prisma.documentRecord.update({
-        where: { id: recordId },
-        data: { sheetsRowIndex: newRowIndex },
-      });
-    }
+    rowIndex = newRowIndex > 0 ? newRowIndex : null;
+    logger.info("Fila de Sheets agregada", { recordId, rowIndex, manifiesto: record.manifiesto });
+  }
+
+  // Actualizar el índice en BD solo como referencia (no se usa para buscar)
+  if (rowIndex && rowIndex > 0) {
+    await prisma.documentRecord.update({
+      where: { id: recordId },
+      data: { sheetsRowIndex: rowIndex },
+    });
   }
 }
 
