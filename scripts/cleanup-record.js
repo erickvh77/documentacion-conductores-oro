@@ -17,9 +17,18 @@
  */
 
 require("dotenv").config();
+const { Pool } = require("pg");
+const { PrismaPg } = require("@prisma/adapter-pg");
 const { PrismaClient } = require("../app/generated/prisma");
 
-const prisma = new PrismaClient();
+if (!process.env.DATABASE_URL) {
+  console.error("❌  DATABASE_URL no está configurado en el .env");
+  process.exit(1);
+}
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const manifiesto = process.argv[2];
