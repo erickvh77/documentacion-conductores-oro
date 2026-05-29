@@ -17,7 +17,7 @@
  */
 
 require("dotenv").config();
-const { PrismaClient } = require("./app/generated/prisma");
+const { PrismaClient } = require("../app/generated/prisma");
 
 const prisma = new PrismaClient();
 
