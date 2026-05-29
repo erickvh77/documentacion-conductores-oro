@@ -255,14 +255,6 @@ export function StepOne() {
                   <Button type="button" fullWidth onClick={handleCompleteExisting}>
                     Agregar documentos faltantes →
                   </Button>
-
-                  <button
-                    type="button"
-                    className="text-xs text-center text-gray-400 underline hover:text-gray-600"
-                    onClick={handleNuevoRegistro}
-                  >
-                    Crear nuevo registro de todos modos
-                  </button>
                 </>
               )}
             </div>

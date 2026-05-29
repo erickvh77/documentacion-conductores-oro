@@ -6,12 +6,14 @@
  * en Google Drive y Google Sheets.
  *
  * USO:
- *   node scripts/cleanup-record.js <manifiesto>            ← solo muestra info
- *   node scripts/cleanup-record.js <manifiesto> --borrar   ← borra de la BD
+ *   node scripts/cleanup-record.js <manifiesto>                        ← solo muestra info
+ *   node scripts/cleanup-record.js <manifiesto> --borrar               ← borra TODOS de la BD
+ *   node scripts/cleanup-record.js <manifiesto> --borrar --id <uuid>   ← borra solo ese ID
  *
  * EJEMPLOS:
  *   node scripts/cleanup-record.js 9853451
  *   node scripts/cleanup-record.js 9853451 --borrar
+ *   node scripts/cleanup-record.js 9853809 --borrar --id abc123-def456
  */
 
 require("dotenv").config();
@@ -21,15 +23,25 @@ const prisma = new PrismaClient();
 
 async function main() {
   const manifiesto = process.argv[2];
-  const confirmar = process.argv[3] === "--borrar";
+  const confirmar = process.argv.includes("--borrar");
+
+  // Soporte para --id <uuid> para borrar solo un registro específico
+  const idFlagIdx = process.argv.indexOf("--id");
+  const targetId = idFlagIdx !== -1 ? process.argv[idFlagIdx + 1] : null;
 
   if (!manifiesto) {
-    console.error("❌  Uso: node scripts/cleanup-record.js <manifiesto> [--borrar]");
+    console.error("❌  Uso: node scripts/cleanup-record.js <manifiesto> [--borrar] [--id <uuid>]");
+    process.exit(1);
+  }
+
+  if (targetId && !confirmar) {
+    console.error("❌  El flag --id solo tiene efecto junto con --borrar.");
     process.exit(1);
   }
 
   console.log(`\n${"=".repeat(60)}`);
   console.log(`  Buscando manifiesto: ${manifiesto}`);
+  if (targetId) console.log(`  Filtro de ID:        ${targetId}`);
   console.log(`${"=".repeat(60)}\n`);
 
   // Buscar TODOS los registros con ese manifiesto (puede haber duplicados)
@@ -51,7 +63,8 @@ async function main() {
   console.log(`📋  Registros encontrados: ${records.length}\n`);
 
   for (const r of records) {
-    console.log(`  ┌─ ID:           ${r.id}`);
+    const marker = targetId ? (r.id === targetId ? "◀ ESTE SE BORRARÁ" : "  (se conserva)") : "";
+    console.log(`  ┌─ ID:           ${r.id} ${marker}`);
     console.log(`  │  Placa:        ${r.placa}`);
     console.log(`  │  Conductor:    ${r.nombreConductor}`);
     console.log(`  │  Cliente:      ${r.cliente?.nombre ?? "—"}`);
@@ -73,27 +86,49 @@ async function main() {
     console.log("");
   }
 
+  // Determinar qué registros se van a borrar
+  const recordsToDelete = targetId
+    ? records.filter((r) => r.id === targetId)
+    : records;
+
+  if (targetId && recordsToDelete.length === 0) {
+    console.log(`❌  No se encontró un registro con ID "${targetId}" para el manifiesto ${manifiesto}.`);
+    await prisma.$disconnect();
+    return;
+  }
+
   // ── Acciones manuales requeridas ────────────────────────────────────────
   console.log(`${"─".repeat(60)}`);
   console.log("📌  ACCIONES MANUALES EN GOOGLE DRIVE:");
-  for (const r of records) {
-    if (r.driveFolderId) {
+  for (const r of recordsToDelete) {
+    if (r.pdfDriveId) {
+      console.log(`   Eliminar PDF (Drive ID: ${r.pdfDriveId}):`);
+      console.log(`   → ${r.pdfUrl ?? `https://drive.google.com/file/d/${r.pdfDriveId}/view`}`);
+    }
+    if (!targetId && r.driveFolderId) {
       console.log(`   Eliminar carpeta MANIFIESTO_${manifiesto}:`);
       console.log(`   → https://drive.google.com/drive/folders/${r.driveFolderId}`);
-    } else {
-      console.log(`   No hay carpeta Drive registrada para este viaje.`);
+    }
+    if (!r.pdfDriveId && !r.driveFolderId) {
+      console.log(`   No hay archivos Drive registrados para este viaje.`);
     }
   }
 
   console.log("");
   console.log("📌  ACCIONES MANUALES EN GOOGLE SHEETS (tab Registros):");
-  for (const r of records) {
-    if (r.sheetsRowIndex) {
-      console.log(`   Eliminar FILA ${r.sheetsRowIndex} del tab Registros`);
-      console.log(`   (Busca el manifiesto ${manifiesto} en la columna C)`);
-    } else {
-      console.log(`   Fila no registrada en BD — busca manualmente el manifiesto ${manifiesto}`);
-      console.log(`   en la columna C del tab Registros y elimina esa fila.`);
+  if (targetId) {
+    console.log(`   Solo se borra el registro duplicado de la BD.`);
+    console.log(`   La fila del sheet será actualizada correctamente`);
+    console.log(`   la próxima vez que completes el viaje en la app.`);
+  } else {
+    for (const r of recordsToDelete) {
+      if (r.sheetsRowIndex) {
+        console.log(`   Eliminar FILA ${r.sheetsRowIndex} del tab Registros`);
+        console.log(`   (Busca el manifiesto ${manifiesto} en la columna C)`);
+      } else {
+        console.log(`   Fila no registrada en BD — busca manualmente el manifiesto ${manifiesto}`);
+        console.log(`   en la columna C del tab Registros y elimina esa fila.`);
+      }
     }
   }
   console.log(`${"─".repeat(60)}`);
@@ -101,8 +136,13 @@ async function main() {
 
   if (!confirmar) {
     console.log("⚠️   MODO SOLO LECTURA — no se borró nada.");
-    console.log(`     Para eliminar de la BD, ejecuta con --borrar:`);
-    console.log(`     node scripts/cleanup-record.js ${manifiesto} --borrar\n`);
+    console.log(`     Para eliminar todos los registros de la BD:`);
+    console.log(`       node scripts/cleanup-record.js ${manifiesto} --borrar`);
+    if (records.length > 1) {
+      console.log(`     Para eliminar solo un registro específico (más seguro):`);
+      console.log(`       node scripts/cleanup-record.js ${manifiesto} --borrar --id <ID_DEL_REGISTRO>`);
+    }
+    console.log("");
     await prisma.$disconnect();
     return;
   }
@@ -111,14 +151,16 @@ async function main() {
   let totalItems = 0;
   let totalCache = 0;
 
-  for (const r of records) {
-    // 1. Limpiar caché de carpetas Drive relacionadas con este manifiesto
-    const cacheDeleted = await prisma.driveFolderCache.deleteMany({
-      where: {
-        folderPath: { contains: `MANIFIESTO_${manifiesto}` },
-      },
-    });
-    totalCache += cacheDeleted.count;
+  for (const r of recordsToDelete) {
+    // 1. Limpiar caché de carpetas Drive solo si borramos todo (no cuando --id)
+    if (!targetId) {
+      const cacheDeleted = await prisma.driveFolderCache.deleteMany({
+        where: {
+          folderPath: { contains: `MANIFIESTO_${manifiesto}` },
+        },
+      });
+      totalCache += cacheDeleted.count;
+    }
 
     // 2. Borrar el registro (cascade elimina los document_items automáticamente)
     await prisma.documentRecord.delete({ where: { id: r.id } });
@@ -132,9 +174,19 @@ async function main() {
   }
 
   console.log("");
-  console.log("✅  LIMPIEZA DE BD COMPLETADA.");
-  console.log("    Ahora realiza las acciones manuales indicadas arriba");
-  console.log("    y luego vuelve a registrar el viaje desde cero.\n");
+  if (targetId) {
+    const remaining = records.filter((r) => r.id !== targetId);
+    console.log("✅  REGISTRO DUPLICADO ELIMINADO.");
+    if (remaining.length > 0) {
+      console.log(`    Queda el registro original: ${remaining[0].id}`);
+      console.log("    Ahora puedes completar el viaje en la app normalmente.");
+    }
+  } else {
+    console.log("✅  LIMPIEZA DE BD COMPLETADA.");
+    console.log("    Ahora realiza las acciones manuales indicadas arriba");
+    console.log("    y luego vuelve a registrar el viaje desde cero.");
+  }
+  console.log("");
 
   await prisma.$disconnect();
 }

@@ -42,6 +42,32 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-real-ip") ??
       "unknown";
 
+    // ── Guard: rechazar si ya existe un registro activo para ese manifiesto ──
+    if (data.manifiesto) {
+      const existing = await prisma.documentRecord.findFirst({
+        where: {
+          manifiesto: { equals: data.manifiesto.trim(), mode: "insensitive" },
+          estado: { not: "ERROR" },
+        },
+        select: { id: true, estado: true },
+      });
+      if (existing) {
+        logger.warn("Intento de crear registro duplicado para manifiesto existente", {
+          manifiesto: data.manifiesto,
+          existingId: existing.id,
+          existingEstado: existing.estado,
+        });
+        return NextResponse.json(
+          {
+            error: "Ya existe un registro para este manifiesto",
+            detail: `El manifiesto ${data.manifiesto} ya tiene un registro (ID: ${existing.id}). Use la opción de agregar documentos faltantes.`,
+            existingRecordId: existing.id,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // Derivar agencia del registro desde el primer ítem entregado con agencia
     const agenciaRegistro =
       data.items.find((i) => i.entregado && i.agencyName)?.agencyName ?? null;
